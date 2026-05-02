@@ -42,6 +42,7 @@ log_config = load_log_config()
 # Couleurs personnalisées pour les logs - ROSE
 COLORS = {
     "moderation": discord.Color.from_rgb(255, 105, 180),
+    "management": discord.Color.from_rgb(255, 105, 180),
 }
 
 def create_log_embed(bot_user, user, action, description, color=None):
@@ -249,6 +250,176 @@ async def clear(ctx, nombre: int = None, *, raison=None):
                 await log_channel.send(embed=embed)
     except Exception as e:
         await ctx.send(f"Erreur : {e}", ephemeral=True)
+
+# ============ MANAGEMENT - MUTE LIST ============
+@bot.command(name="mutelist")
+@commands.has_permissions(manage_roles=True)
+async def mute_list(ctx):
+    """Voir la liste des membres mutés"""
+    muted_role = discord.utils.get(ctx.guild.roles, name="Muted")
+    
+    if not muted_role or not muted_role.members:
+        embed = discord.Embed(
+            title="Liste des Mutés",
+            description="Aucun membre mute",
+            color=COLORS["management"],
+            timestamp=datetime.datetime.now()
+        )
+        embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+        return await ctx.send(embed=embed, ephemeral=True)
+    
+    muted_members = muted_role.members
+    embed = discord.Embed(
+        title="Liste des Mutés",
+        description=f"Total: **{len(muted_members)}** membre(s)",
+        color=COLORS["management"],
+        timestamp=datetime.datetime.now()
+    )
+    
+    # Ajouter les membres par groupe de 10
+    members_list = "\n".join([f"• {member.mention} (`{member.id}`)" for member in muted_members[:10]])
+    embed.add_field(name="Membres", value=members_list, inline=False)
+    
+    if len(muted_members) > 10:
+        embed.set_footer(text=f"Et {len(muted_members) - 10} autre(s)...")
+    
+    embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+    await ctx.send(embed=embed, ephemeral=True)
+
+# ============ MANAGEMENT - BAN LIST ============
+@bot.command(name="banlist")
+@commands.has_permissions(ban_members=True)
+async def ban_list(ctx):
+    """Voir la liste des membres bannis"""
+    try:
+        banned_users = [entry async for entry in ctx.guild.bans()]
+        
+        if not banned_users:
+            embed = discord.Embed(
+                title="Liste des Bannis",
+                description="Aucun membre banni",
+                color=COLORS["management"],
+                timestamp=datetime.datetime.now()
+            )
+            embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+            return await ctx.send(embed=embed, ephemeral=True)
+        
+        embed = discord.Embed(
+            title="Liste des Bannis",
+            description=f"Total: **{len(banned_users)}** membre(s)",
+            color=COLORS["management"],
+            timestamp=datetime.datetime.now()
+        )
+        
+        # Ajouter les membres par groupe de 10
+        members_list = "\n".join([f"• {entry.user.mention} (`{entry.user.id}`)\n  Raison: {entry.reason or 'Aucune'}" for entry in banned_users[:10]])
+        embed.add_field(name="Membres", value=members_list, inline=False)
+        
+        if len(banned_users) > 10:
+            embed.set_footer(text=f"Et {len(banned_users) - 10} autre(s)...")
+        
+        embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+        await ctx.send(embed=embed, ephemeral=True)
+    except Exception as e:
+        await ctx.send(f"Erreur : {e}", ephemeral=True)
+
+# ============ MANAGEMENT - VOICE LIST ============
+@bot.command(name="voclist")
+async def voc_list(ctx):
+    """Voir la liste des membres en vocal"""
+    voice_channels = [c for c in ctx.guild.voice_channels if c.members]
+    
+    if not voice_channels:
+        embed = discord.Embed(
+            title="Membres en Vocal",
+            description="Personne en vocal",
+            color=COLORS["management"],
+            timestamp=datetime.datetime.now()
+        )
+        embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+        return await ctx.send(embed=embed, ephemeral=True)
+    
+    total_members = sum(len(c.members) for c in voice_channels)
+    
+    embed = discord.Embed(
+        title="Membres en Vocal",
+        description=f"Total: **{total_members}** membre(s)",
+        color=COLORS["management"],
+        timestamp=datetime.datetime.now()
+    )
+    
+    for channel in voice_channels:
+        members = "\n".join([f"• {m.mention}" for m in channel.members[:5]])
+        if len(channel.members) > 5:
+            members += f"\n... et {len(channel.members) - 5} autre(s)"
+        embed.add_field(name=f"{channel.name} ({len(channel.members)})", value=members, inline=False)
+    
+    embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+    await ctx.send(embed=embed, ephemeral=True)
+
+# ============ MANAGEMENT - ROLE LIST ============
+@bot.command(name="rolelist")
+@commands.has_permissions(manage_roles=True)
+async def role_list(ctx, role: discord.Role = None):
+    """Voir la liste des membres avec un rôle spécifique"""
+    
+    if role is None:
+        # Afficher tous les rôles avec le nombre de membres
+        embed = discord.Embed(
+            title="Liste des Rôles",
+            description="Spécifie un rôle pour voir les membres\nExemple: `+rolelist @ModRole`",
+            color=COLORS["management"],
+            timestamp=datetime.datetime.now()
+        )
+        
+        roles_list = []
+        for r in ctx.guild.roles:
+            if r.name != "@everyone" and len(r.members) > 0:
+                roles_list.append((len(r.members), r))
+        
+        # Trier par nombre de membres décroissant
+        roles_list.sort(key=lambda x: x[0], reverse=True)
+        
+        roles_text = "\n".join([f"• {r.mention}: **{count}** membre(s)" for count, r in roles_list[:15]])
+        
+        if not roles_text:
+            roles_text = "Aucun rôle avec des membres"
+        
+        embed.add_field(name="Rôles disponibles", value=roles_text, inline=False)
+        
+        if len(roles_list) > 15:
+            embed.set_footer(text=f"Et {len(roles_list) - 15} autre(s) rôle(s)...")
+        
+        embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+        return await ctx.send(embed=embed, ephemeral=True)
+    
+    # Afficher les membres d'un rôle spécifique
+    if not role.members:
+        embed = discord.Embed(
+            title=f"Membres avec le rôle {role.name}",
+            description="Aucun membre avec ce rôle",
+            color=COLORS["management"],
+            timestamp=datetime.datetime.now()
+        )
+        embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+        return await ctx.send(embed=embed, ephemeral=True)
+    
+    embed = discord.Embed(
+        title=f"Membres avec le rôle {role.name}",
+        description=f"Total: **{len(role.members)}** membre(s)",
+        color=role.color if role.color != discord.Color.default() else COLORS["management"],
+        timestamp=datetime.datetime.now()
+    )
+    
+    # Ajouter les membres par groupe de 10
+    members_list = "\n".join([f"• {member.mention}" for member in role.members[:10]])
+    embed.add_field(name="Membres", value=members_list, inline=False)
+    
+    if len(role.members) > 10:
+        embed.set_footer(text=f"Et {len(role.members) - 10} autre(s)...")
+    
+    embed.set_thumbnail(url=ctx.guild.icon.url if ctx.guild.icon else None)
+    await ctx.send(embed=embed, ephemeral=True)
 
 # ============ LANCEMENT ============
 bot.run(TOKEN)
