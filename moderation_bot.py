@@ -61,7 +61,10 @@ def time_converter(duration: str) -> int:
 
 @bot.event
 async def on_ready():
+    activity = discord.Game("Modération en cours 🔨")
+    await bot.change_presence(activity=activity, status=discord.Status.online)
     print(f"Connecté en tant que {bot.user}")
+    print(f"Bot prêt ! Activité : Modération en cours 🔨")
 
 # ============ MODÉRATION - BAN ============
 @bot.command()
