@@ -254,6 +254,58 @@ async def clear(ctx, nombre: int = None, *, raison=None):
     except Exception as e:
         await ctx.send(f"Erreur : {e}", ephemeral=True)
 
+# ============ MODÉRATION - RANK ============
+@bot.command()
+@commands.has_permissions(manage_roles=True)
+async def rank(ctx, member: discord.Member, *, role: discord.Role):
+    """Donner un rôle à un membre"""
+    if member == ctx.author:
+        return await ctx.send("Tu ne peux pas te rank toi-même !", ephemeral=True)
+    
+    if role in member.roles:
+        return await ctx.send(f"{member.mention} possède déjà le rôle {role.mention} !", ephemeral=True)
+    
+    try:
+        await member.add_roles(role)
+        await ctx.send(f"{member.mention} a reçu le rôle {role.mention} par {ctx.author.mention}")
+        try:
+            await member.send(f"Tu as reçu le rôle **{role.name}** sur **{ctx.guild.name}** !")
+        except:
+            pass
+        
+        log_channel = bot.get_channel(LOG_CHANNEL_ID)
+        if log_channel:
+            embed = create_log_embed(bot.user, member, "rank", f"A reçu le rôle {role.mention}\nPar {ctx.author.mention}", COLORS["moderation"])
+            await log_channel.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"Erreur : {e}", ephemeral=True)
+
+# ============ MODÉRATION - DERANK ============
+@bot.command()
+@commands.has_permissions(manage_roles=True)
+async def derank(ctx, member: discord.Member, *, role: discord.Role):
+    """Retirer un rôle à un membre"""
+    if member == ctx.author:
+        return await ctx.send("Tu ne peux pas te derank toi-même !", ephemeral=True)
+    
+    if role not in member.roles:
+        return await ctx.send(f"{member.mention} ne possède pas le rôle {role.mention} !", ephemeral=True)
+    
+    try:
+        await member.remove_roles(role)
+        await ctx.send(f"{member.mention} a perdu le rôle {role.mention} par {ctx.author.mention}")
+        try:
+            await member.send(f"Tu as perdu le rôle **{role.name}** sur **{ctx.guild.name}** !")
+        except:
+            pass
+        
+        log_channel = bot.get_channel(LOG_CHANNEL_ID)
+        if log_channel:
+            embed = create_log_embed(bot.user, member, "derank", f"A perdu le rôle {role.mention}\nPar {ctx.author.mention}", COLORS["moderation"])
+            await log_channel.send(embed=embed)
+    except Exception as e:
+        await ctx.send(f"Erreur : {e}", ephemeral=True)
+
 # ============ MANAGEMENT - MUTE LIST ============
 @bot.command(name="mutelist")
 @commands.has_permissions(manage_roles=True)
